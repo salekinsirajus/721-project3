@@ -47,6 +47,14 @@ void pipeline_t::register_read(unsigned int lane_number) {
       unsigned int lat = Execution_Lanes[lane_number].ex_depth;
 
       // FIX_ME #11a BEGIN
+      if ((PAY.buf[index].C_valid == true) && (lat == 1) && (IS_LOAD(PAY.buf[index].flags) == false)
+       && (IS_AMO(PAY.buf[index].flags) == false)
+      ){
+        //wakeup destination register
+        IQ.wakeup(PAY.buf[index].C_phys_reg);
+        //set ready bit
+        REN->set_ready(PAY.buf[index].C_phys_reg);
+      }
       // FIX_ME #11a END
 
       //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -66,6 +74,16 @@ void pipeline_t::register_read(unsigned int lane_number) {
       //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       // FIX_ME #12 BEGIN
+      //read src registers value from the PRF
+      if (PAY.buf[index].A_valid == true){
+          PAY.buf[index].A_value.dw = REN->read(PAY.buf[index].A_phys_reg);
+      }
+      if (PAY.buf[index].B_valid == true){
+          PAY.buf[index].B_value.dw = REN->read(PAY.buf[index].B_phys_reg);
+      }
+      if (PAY.buf[index].D_valid == true){
+          PAY.buf[index].D_value.dw = REN->read(PAY.buf[index].D_phys_reg);
+      }
       // FIX_ME #12 END
 
       //////////////////////////////////////////////////////////////////////////////////////////////////////////
