@@ -86,6 +86,9 @@ void pipeline_t::rename2() {
       //    Another field indicates whether or not the instruction has a destination register.
 
       // FIX_ME #1 BEGIN
+      //Not all but most branches would need checkpoints
+      if (PAY.buf[index].checkpoint == true) bundle_branch++;
+      if (PAY.buf[index].C_valid == true) bundle_dst++;
       // FIX_ME #1 END
    }
 
@@ -100,6 +103,8 @@ void pipeline_t::rename2() {
    // This is achieved by doing nothing and proceeding to the next statements.
 
    // FIX_ME #2 BEGIN
+   if (REN->stall_branch(bundle_branch) == true) return; //Condition 1: not enough free checkpoints
+   if (REN->stall_reg(bundle_dst) == true) return; //condition 2: not enough free physical registers
    // FIX_ME #2 END
 
    //
@@ -125,6 +130,25 @@ void pipeline_t::rename2() {
       //    so that the physical register specifier can be used in subsequent pipeline stages.
 
       // FIX_ME #3 BEGIN
+      //Source Registers
+      if (PAY.buf[index].A_valid == true){
+        //rename A by calling the respective renamer function
+        PAY.buf[index].A_phys_reg = REN->rename_rsrc(PAY.buf[index].A_log_reg);
+      }
+      if (PAY.buf[index].B_valid == true){
+        //rename B by calling the respective renamer function
+        PAY.buf[index].B_phys_reg = REN->rename_rsrc(PAY.buf[index].B_log_reg);
+      }
+      if (PAY.buf[index].D_valid == true){
+        //rename D by calling the respective renamer function
+        PAY.buf[index].D_phys_reg = REN->rename_rsrc(PAY.buf[index].D_log_reg);
+      }
+
+      //Destination Register
+      if (PAY.buf[index].C_valid == true){
+        //rename D by calling the respective renamer function
+        PAY.buf[index].C_phys_reg = REN->rename_rdst(PAY.buf[index].C_log_reg);
+      }
       // FIX_ME #3 END
 
       // FIX_ME #4
@@ -137,8 +161,8 @@ void pipeline_t::rename2() {
       //    don't have wires place it temporarily in the RENAME2[] pipeline register alongside the instruction, until it advances
       //    to the DISPATCH[] pipeline register. The required left-hand side of the assignment statement is already provided for you below:
       //    RENAME2[i].branch_mask = ??;
-
       // FIX_ME #4 BEGIN
+      RENAME2[i].branch_mask = REN->get_branch_mask();
       // FIX_ME #4 END
 
       // FIX_ME #5
@@ -151,6 +175,9 @@ void pipeline_t::rename2() {
       //    so that the branch ID can be used in subsequent pipeline stages.
 
       // FIX_ME #5 BEGIN
+      if (PAY.buf[index].checkpoint == true){
+        PAY.buf[index].branch_ID = REN->checkpoint();
+      }
       // FIX_ME #5 END
    }
 
