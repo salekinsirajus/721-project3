@@ -29,7 +29,7 @@ void pipeline_t::execute(unsigned int lane_number) {
          }
 
          // Execute the load or store in the LSU.
- 
+
          if (IS_LOAD(PAY.buf[index].flags)) {
             // Instruction is a load.
 
@@ -72,6 +72,11 @@ void pipeline_t::execute(unsigned int lane_number) {
 	    // check the existence (validity) of a destination register.
 
             // FIX_ME #13 BEGIN
+            if (PAY.buf[index].C_valid && hit){
+                IQ.wakeup(PAY.buf[index].C_phys_reg);
+                REN->set_ready(PAY.buf[index].C_phys_reg);
+                REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
+            }
             // FIX_ME #13 END
          }
          else {
@@ -133,6 +138,9 @@ void pipeline_t::execute(unsigned int lane_number) {
 	 // You don't have to decode the instruction, rather, just check the existence (validity) of a destination register.
 
          // FIX_ME #14 BEGIN
+         if (PAY.buf[index].C_valid){
+            REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
+         }
          // FIX_ME #14 END
       }
 
@@ -164,7 +172,7 @@ void pipeline_t::execute(unsigned int lane_number) {
       // This is a multi-cycle execution lane.
       // "depth" corresponds to the instruction in the last sub-stage (and was handled above).
       // "depth-1" corresponds to instruction in second-to-last sub-stage.
-      
+
       if (Execution_Lanes[lane_number].ex[depth-1].valid) {
 	 index = Execution_Lanes[lane_number].ex[depth-1].index;
          // FIX_ME #11b
@@ -187,7 +195,16 @@ void pipeline_t::execute(unsigned int lane_number) {
          //       to the wakeup port).
          //    b. Set the destination register's ready bit.
 
-	 // FIX_ME #11b BEGIN
+         // FIX_ME #11b BEGIN
+          if ((PAY.buf[index].C_valid == true) &&
+              (IS_LOAD(PAY.buf[index].flags) == false) &&
+              (IS_AMO(PAY.buf[index].flags) == false)
+          ){
+            //wakeup destination register
+            IQ.wakeup(PAY.buf[index].C_phys_reg);
+            //set ready bit
+            REN->set_ready(PAY.buf[index].C_phys_reg);
+          }
          // FIX_ME #11b END
       }
    }
@@ -230,17 +247,20 @@ void pipeline_t::load_replay() {
    if (LSU.load_unstall(cycle, index, value)) {
       // Load has resolved.
       assert(IS_LOAD(PAY.buf[index].flags));
-   
+
       if (PAY.buf[index].C_valid) {
          assert(PAY.buf[index].C_log_reg != 0); // if X0, would have cleared C_valid in Decode Stage
          PAY.buf[index].C_value.dw = value;
-      
+
          // FIX_ME #18a
          // Tips:
          // 1. At this point of the code, 'index' is the instruction's index into PAY.buf[] (payload).
          // 2. See #13 (in execute.cc), and implement steps 3a,3b,3c.
-      
+
 	 // FIX_ME #18a BEGIN
+        IQ.wakeup(PAY.buf[index].C_phys_reg);
+        REN->set_ready(PAY.buf[index].C_phys_reg);
+        REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
          // FIX_ME #18a END
       }
 
@@ -252,6 +272,7 @@ void pipeline_t::load_replay() {
       // 2. Set the completed bit for this instruction in the Active List.
 
       // FIX_ME #18b BEGIN
+      REN->set_complete(PAY.buf[index].AL_index);
       // FIX_ME #18b END
    }
 }
